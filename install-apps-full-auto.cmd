@@ -379,15 +379,15 @@ echo.
 ::%sleep% 3
 ::%install% "%temp%\firestick-loader\apps\media\mediaboxhd.apk"
 
-cls
-%_color% 0e
-set appName=Crackle
-set apk=
-echo.
-echo.
-echo Installing %appName%...
-echo.
-%install% "apps\media\crackle.apk"
+::cls
+::%_color% 0e
+::set appName=Crackle
+::set apk=
+::echo.
+::echo.
+::echo Installing %appName%...
+::echo.
+::%install% "apps\media\crackle.apk"
 
 ::cls
 ::%_color% 0e

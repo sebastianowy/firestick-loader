@@ -31,7 +31,7 @@ set nodg=0
 :: Used for re-using code from older firmware if version matches with no major changes
 set v_match=0
 
-if not exist "%temp%\firestick-loader" md "%temp%\firestick-loader"
+if not exist "%tmp%\firestick-loader" md "%tmp%\firestick-loader"
 
 :start
 color 0e
@@ -48,9 +48,9 @@ set twrp_available=0
 cls
 echo Looking For TWRP Recovery...
 echo.
-%pull% /twres/twrp "%temp%\firestick-loader"
+%pull% /twres/twrp "%tmp%\firestick-loader"
 %sleep% 2
-if exist "%temp%\firestick-loader\twrp" set twrp_available=1
+if exist "%tmp%\firestick-loader\twrp" set twrp_available=1
 if %twrp_available%==1 goto intro
 if %twrp_available%==0 goto twrpfail
 
@@ -71,7 +71,7 @@ goto start
 %msgbox% "You must have already completed the initial OOBE setup on device to continue!" "Mantis Full Setup Script"
 
 :: Reset TWRP Flags
-if %twrp_available%==1 del /f /q "%temp%\firestick-loader\twrp"
+if %twrp_available%==1 del /f /q "%tmp%\firestick-loader\twrp"
 if %twrp_available%==1 set twrp_available=0
 
 color 0e
@@ -97,13 +97,13 @@ if %rwcheck%==1 goto intro
 
 :: Get FireOS Info
 %shell% "cat /system/build.prop | grep ro.build.version.name>/sdcard/fireos-version.txt"
-%pull% /sdcard/fireos-version.txt "%temp%"
+%pull% /sdcard/fireos-version.txt "%tmp%"
 
 %shell% "cat /system/build.prop | grep ro.product.device=>/sdcard/fireos-device.txt"
-%pull% /sdcard/fireos-device.txt "%temp%"
+%pull% /sdcard/fireos-device.txt "%tmp%"
 
-for /f "tokens=3 delims= " %%f in ('type "%temp%\fireos-version.txt"') do set fireOsVersion=%%f
-for /f "tokens=2 delims==" %%f in ('type "%temp%\fireos-device.txt"') do set fireOsDevice=%%f
+for /f "tokens=3 delims= " %%f in ('type "%tmp%\fireos-version.txt"') do set fireOsVersion=%%f
+for /f "tokens=2 delims==" %%f in ('type "%tmp%\fireos-device.txt"') do set fireOsDevice=%%f
 %sleep% 1
 %shell% "rm /sdcard/fireos-version.txt"
 %shell% "rm /sdcard/fireos-device.txt"
@@ -115,11 +115,24 @@ if not %fireOsDevice%==mantis goto nomantis
 color 0c
 set noway=0
 set dgchoice=n
+set forcerom=n
+
+cls
+%cocolor% 0e
+echo Do you want force install rom 6.2.7.7 (3033)? [y/n]
+set /p forcerom=
+
+if %forcerom%==y (
+	set v_match=0
+	set downgrade=0
+	set nodg=1
+	goto dg6258
+)
 
 if %fireOsVersion%==6.2.5.8 (
 	set v_match=0
 	set downgrade=1
-	set nodg=1
+	set nodg=0
 	goto is6258
 )
 
@@ -240,7 +253,7 @@ echo.
 %cocolor% 0e
 echo The device will have the following done to it:
 echo.
-echo - Downgrade To Stock Amazon FireOS 6.2.5.8
+echo - Downgrade To Stock Amazon FireOS 6.2.5.8 (or forced rom)
 echo - Amazon Bloat Removed
 echo - Custom Home Menu and Data Installed To System
 echo - TitaniumBackup Installed To System. Use To Restore All Apps and Data
@@ -381,41 +394,81 @@ if %rwcheck%==1 %adb% reboot recovery
 if %rwcheck%==1 %sleep% 15
 if %rwcheck%==1 goto stage1
 
-echo STOP [THIS IS NOT FINISHED YET!]
-echo.
-pause
-goto end
+if NOT %forcerom%==y (
+	echo STOP [THIS IS NOT FINISHED YET!]
+	echo.
+	pause
+	goto end
+	cls
+	echo Preparing Stock FireOS 6.2.5.8 Downgrade Files
+	echo.
+	if not exist "%tmp%\firestick-loader\downgrade\stick3\6.2.5.8" md "%tmp%\firestick-loader\downgrade\stick3\6.2.5.8"
+	%extractRAR% "downgrade\stick3\6.2.5.8\firmware-mantis-6.2.5.8.split" "%tmp%\firestick-loader\downgrade\stick3"
 
-cls
-echo Preparing Stock FireOS 6.2.5.8 Downgrade Files
-echo.
-if not exist "%temp%\firestick-loader\downgrade\stick3\6.2.5.8" md "%temp%\firestick-loader\downgrade\stick3\6.2.5.8"
-%extractRAR% "downgrade\stick3\6.2.5.8\firmware-mantis-6.2.5.8.split" "%temp%\firestick-loader\downgrade\stick3"
+	cls
+	echo Pushing Downgrade Bin to /sdcard/...
+	echo.
+	%push% "%tmp%\firestick-loader\downgrade\stick3\update-kindle-full_mantisXXXXXXXXXXXXXXXXX_6.2.5.8.bin" /sdcard/
+	%sleep% 2
 
-cls
-echo Pushing Downgrade Bin to /sdcard/...
-echo.
-%push% "%temp%\firestick-loader\downgrade\stick3\update-kindle-full_mantisXXXXXXXXXXXXXXXXX_6.2.5.8.bin" /sdcard/
-%sleep% 2
+	cls
+	echo Wiping System...
+	echo.
+	%twrp% wipe /system
+	%sleep% 5
 
-cls
-echo Wiping System...
-echo.
-%twrp% wipe /system
-%sleep% 5
+	cls
+	echo Installing Stock FireOS 6.2.5.8...
+	echo.
+	%twrp% install /sdcard/update-kindle-full_mantisXXXXXXXXXXXXXXXXX_6.2.5.8.bin
+	%sleep% 5
 
-cls
-echo Installing Stock FireOS 6.2.5.8...
-echo.
-%twrp% install /sdcard/update-kindle-full_mantisXXXXXXXXXXXXXXXXX_6.2.5.8.bin
-%sleep% 5
+	cls
+	echo Cleaning Up Files...
+	echo.
+	rd /s /q "%tmp%\firestick-loader\downgrade\stick3"
+	%shell% "rm /sdcard/update-kindle-full_mantisXXXXXXXXXXXXXXXXX_6.2.5.8.bin"
+	%sleep% 2
+) else (
+	set forcerom=n
+	cls
+	echo Preparing Stock FireOS 6.2.7.7 (3033) Rom Files
+	echo.
+	if not exist "%tmp%\roms\stick-4k\6.2.7.7\3033" ( 
+		md "%tmp%\firestick-loader\roms\stick-4k\6.2.7.7\3033"
+	)
+	if not exist "roms\stick-4k\6.2.7.7\3033\update-kindle-mantis-NS6277_user_3033_0004597733764.bin" ( 
+		curl https://d1s31zyz7dcc2d.cloudfront.net/68d33a27765a01a75f9ccc8d11a52791/update-kindle-mantis-NS6277_user_3033_0004597733764.bin -o roms\stick-4k\6.2.7.7\3033\update-kindle-mantis-NS6277_user_3033_0004597733764.bin 
+	)
+	copy "roms\stick-4k\6.2.7.7\3033\update-kindle-mantis-NS6277_user_3033_0004597733764.bin" "%tmp%\firestick-loader\roms\stick-4k\6.2.7.7\3033"
 
-cls
-echo Cleaning Up Files...
-echo.
-rd /s /q "%temp%\firestick-loader\downgrade\stick3"
-%shell% "rm /sdcard/update-kindle-full_mantisXXXXXXXXXXXXXXXXX_6.2.5.8.bin"
-%sleep% 2
+	cls
+	echo Pushing Rom Bin to /sdcard/...
+	echo.
+	%push% "%tmp%\firestick-loader\roms\stick-4k\6.2.7.7\3033\update-kindle-mantis-NS6277_user_3033_0004597733764.bin" /sdcard/
+	%sleep% 2
+
+	cls
+	echo Wiping System...
+	echo.
+	%twrp% wipe /system
+	%sleep% 5
+
+	cls
+	echo Installing Stock FireOS 6.2.7.7 (3033)...
+	echo.
+	%twrp% install /sdcard/update-kindle-mantis-NS6277_user_3033_0004597733764.bin
+	%sleep% 5
+
+	cls
+	echo Cleaning Up Files...
+	echo.
+	rd /s /q "%tmp%\firestick-loader\roms\stick-4k\6.2.7.7\3033"
+	%shell% "rm /sdcard/update-kindle-mantis-NS6277_user_3033_0004597733764.bin"
+	%sleep% 2
+)
+
+
 
 cls
 echo Preparing Reboot...

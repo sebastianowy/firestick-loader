@@ -24,6 +24,7 @@ set push=%adb% push
 set pull=%adb% pull
 set shell=%adb% shell
 set twrp=%shell% twrp
+set tmp=tmp
 
 :: Used for 6.2.5.8 when no downgrade will be done
 set nodg=0
